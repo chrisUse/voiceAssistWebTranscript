@@ -1,10 +1,10 @@
 # Voice Dictation Web App
 
-Sprachgesteuerte Diktierlösung: Audio aufnehmen → transkribieren → als Dokument speichern.
+Voice-driven dictation solution: record audio → transcribe → save as documents.
 
-## Architektur
+## Architecture
 
-Drei Docker-Services, vollständig self-contained:
+Three Docker services, fully self-contained:
 
 ```
 Browser → Frontend (Vite/React :5173)
@@ -17,70 +17,72 @@ Browser → Frontend (Vite/React :5173)
 ## Services
 
 ### whisper/
-- `faster-whisper` REST-Service, exponiert `/transcribe`
-- Nimmt WAV 16kHz mono entgegen, gibt `{"text": "..."}` zurück
-- Modell konfigurierbar via `WHISPER_MODEL` (tiny/base/small/medium/large-v3)
-- Modell-Cache im Docker-Volume `whisper-models` (HuggingFace, wird beim ersten Start geladen)
+- `faster-whisper` REST service, exposes `/transcribe`
+- Accepts WAV 16kHz mono, returns `{"text": "..."}`
+- Model configurable via `WHISPER_MODEL` env var (tiny/base/small/medium/large-v3)
+- Model cache in Docker volume `whisper-models` (downloaded from HuggingFace on first start)
 
 ### backend/
-- FastAPI mit SQLite (Volume `backend-data`)
-- `/api/transcribe/` – konvertiert Audio via ffmpeg → WAV, leitet an Whisper weiter
-- `/api/docs/` – CRUD für Dokumente + `/api/docs/{id}/export` als .txt-Download
+- FastAPI with SQLite (volume `backend-data`)
+- `/api/transcribe/` — converts audio via ffmpeg → WAV, forwards to Whisper
+- `/api/docs/` — document CRUD + `/api/docs/{id}/export` as `.txt` download
 - Config via `.env`: `WHISPER_URL`, `WHISPER_LANGUAGE`
 
 ### frontend/
-- React + Vite, Dev-Target mit Hot Reload
-- Zwei STT-Provider umschaltbar (gespeichert in localStorage):
-  - **Google** (Standard): Browser-native `SpeechRecognition` API, Audio geht direkt an Googles Server, kein API-Key, nur Chrome/Edge, braucht HTTPS oder localhost
-  - **Whisper**: `MediaRecorder` → Backend → Whisper-Container, funktioniert offline
-- Ctrl+S speichert das aktive Dokument
+- React + Vite, dev target with hot reload, HTTPS via self-signed cert (`@vitejs/plugin-basic-ssl`)
+- Two switchable STT providers (persisted in localStorage):
+  - **Google** (default): browser-native `SpeechRecognition` API, audio goes directly to Google, no API key, Chrome/Edge only, requires HTTPS
+  - **Whisper**: `MediaRecorder` → backend → Whisper container, works offline
+- Continuous recording mode: silence detection (Web Audio API) auto-stops and restarts Whisper segments; Google uses `recognition.continuous = true`
+- Title field auto-saves on blur; Ctrl+S saves document content
 
-## Starten
+## Setup
 
 ```bash
-cp .env.example .env          # einmalig: Konfiguration anlegen
-docker compose up --build     # erster Start (Modell wird heruntergeladen)
-docker compose up             # danach
+cp .env.example .env          # once: create config file
+docker compose up --build     # first start (model download)
+docker compose up             # subsequent starts
 ```
 
-Frontend: http://localhost:3005  
+Frontend: https://localhost:3005  
 Backend API: http://localhost:8011
 
 ## Ports (docker-compose.yml)
 
-| Service  | Intern | Extern |
-|----------|--------|--------|
-| whisper  | 8001   | —      |
-| backend  | 8000   | 8011   |
-| frontend | 5173   | 3005   |
+| Service  | Internal | External |
+|----------|----------|----------|
+| whisper  | 8001     | —        |
+| backend  | 8000     | 8011     |
+| frontend | 5173     | 3005     |
 
-## Produktion
+## Production
+
+Set the frontend target to `prod` in `docker-compose.yml`:
 
 ```yaml
-# docker-compose.yml: frontend target auf prod setzen
 target: prod
 ports:
   - "80:80"
 ```
 
-Das prod-Target baut einen nginx-Container mit dem statischen Vite-Build.
-Für Google Web Speech API ist HTTPS erforderlich (nicht localhost).
+Builds an nginx container with the static Vite bundle.  
+Google Web Speech API requires a proper HTTPS certificate in production.
 
-## Whisper-Modell wechseln
+## Changing the Whisper Model
 
 In `docker-compose.yml`:
 ```yaml
 environment:
-  - WHISPER_MODEL=small    # besser für Deutsch
-  - WHISPER_MODEL=medium   # sehr gut, aber langsamer auf CPU
+  - WHISPER_MODEL=small    # better German accuracy
+  - WHISPER_MODEL=medium   # very good, but slower on CPU
 ```
 
-Nach Änderung: `docker compose up -d --build whisper`
+Then rebuild: `docker compose up -d --build whisper`
 
-## Wichtige Dateien
+## Key Files
 
-- `frontend/src/hooks/useRecorder.ts` – Whisper-Pfad (MediaRecorder → Backend)
-- `frontend/src/hooks/useWebSpeech.ts` – Google-Pfad (SpeechRecognition API)
-- `backend/app/routers/transcribe.py` – ffmpeg-Konvertierung + Whisper-Forwarding
-- `backend/app/routers/docs.py` – Dokument-CRUD + .txt-Export
-- `whisper/app.py` – faster-whisper FastAPI-Service
+- `frontend/src/hooks/useRecorder.ts` — Whisper path (MediaRecorder + silence detection)
+- `frontend/src/hooks/useWebSpeech.ts` — Google path (SpeechRecognition API)
+- `backend/app/routers/transcribe.py` — ffmpeg conversion + Whisper forwarding
+- `backend/app/routers/docs.py` — document CRUD + .txt export
+- `whisper/app.py` — faster-whisper FastAPI service

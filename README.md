@@ -1,17 +1,17 @@
 # Voice Dictation Web App
 
-Sprachgesteuerte Diktierlösung als Docker-Web-App. Audio aufnehmen → automatisch transkribieren → als Dokument speichern und exportieren.
+A Docker-based voice dictation web app. Record audio → transcribe automatically → save and export as documents.
 
 ## Features
 
-- **Zwei STT-Provider** umschaltbar:
-  - **Google** (Standard): Browser-native Web Speech API, kein API-Key, nur Chrome/Edge
-  - **Whisper**: Lokaler faster-whisper Container, funktioniert offline
-- **Daueraufnahme**: Automatischer Neustart nach jeder Sprechpause
-- **Dokumente**: Anlegen, umbenennen, bearbeiten, als `.txt` exportieren
-- Vollständig self-contained in Docker — keine externen Dienste nötig
+- **Two switchable STT providers:**
+  - **Google** (default): Browser-native Web Speech API, no API key required, Chrome/Edge only
+  - **Whisper**: Local faster-whisper container, works offline
+- **Continuous recording**: Automatically restarts after each pause in speech
+- **Documents**: Create, rename, edit, export as `.txt`
+- Fully self-contained in Docker — no external services required
 
-## Voraussetzungen
+## Requirements
 
 - Docker + Docker Compose
 
@@ -22,56 +22,56 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Beim ersten Start wird das Whisper-Modell heruntergeladen (~145 MB für `base`). Danach:
+On first start the Whisper model is downloaded (~145 MB for `base`). Then open:
 
 ```
 https://localhost:3005
 ```
 
-> Der Browser zeigt eine Zertifikatswarnung (selbstsigniert) — einfach bestätigen.  
-> HTTPS ist für die Web Speech API erforderlich.
+> The browser will show a certificate warning (self-signed) — just confirm and proceed.  
+> HTTPS is required for the Web Speech API.
 
-## Dienste
+## Services
 
-| Service  | Extern  | Beschreibung                        |
-|----------|---------|-------------------------------------|
-| frontend | `3005`  | React Dev-Server (Vite + HTTPS)     |
-| backend  | `8011`  | FastAPI REST API                    |
-| whisper  | —       | faster-whisper (nur intern)         |
+| Service  | External | Description                        |
+|----------|----------|------------------------------------|
+| frontend | `3005`   | React dev server (Vite + HTTPS)    |
+| backend  | `8011`   | FastAPI REST API                   |
+| whisper  | —        | faster-whisper (internal only)     |
 
-## Konfiguration
+## Configuration
 
-`.env` (aus `.env.example` kopieren):
+`.env` (copy from `.env.example`):
 
 ```env
 WHISPER_URL=http://whisper:8001
 WHISPER_LANGUAGE=de
 ```
 
-Whisper-Modell in `docker-compose.yml` ändern:
+Change the Whisper model in `docker-compose.yml`:
 
 ```yaml
 environment:
   - WHISPER_MODEL=base    # tiny | base | small | medium | large-v3
 ```
 
-Nach Modelländerung: `docker compose up -d --build whisper`
+After changing the model: `docker compose up -d --build whisper`
 
-## Datenspeicherung
+## Data Storage
 
-Dokumente liegen in SQLite im Docker-Volume `backend-data` — persistent über Neustarts.
+Documents are stored in SQLite inside the Docker volume `backend-data` — persistent across restarts.
 
 ```bash
 # Backup
 docker exec dictation-backend cat /app/data/docs.db > backup.db
 
-# Daten löschen (Volume entfernen)
+# Delete all data (removes volume)
 docker compose down -v
 ```
 
-## Produktion
+## Production
 
-In `docker-compose.yml` das Frontend-Target auf `prod` setzen:
+Set the frontend build target to `prod` in `docker-compose.yml`:
 
 ```yaml
 frontend:
@@ -81,4 +81,4 @@ frontend:
     - "80:80"
 ```
 
-Baut einen nginx-Container mit statischem Vite-Build. Für Google Web Speech API eigenes HTTPS-Zertifikat einrichten.
+This builds an nginx container serving the static Vite build. For Google Web Speech API in production, a proper HTTPS certificate is required.
