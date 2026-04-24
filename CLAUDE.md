@@ -38,6 +38,7 @@ Browser → Frontend (Vite/React :5173)
 ## Starten
 
 ```bash
+cp .env.example .env          # einmalig: Konfiguration anlegen
 docker compose up --build     # erster Start (Modell wird heruntergeladen)
 docker compose up             # danach
 ```
