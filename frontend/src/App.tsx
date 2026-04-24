@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRecorder } from "./hooks/useRecorder";
+import { useWebSpeech } from "./hooks/useWebSpeech";
+
+type SttProvider = "webspeech" | "whisper";
 
 interface Doc {
   id: number;
@@ -16,6 +19,9 @@ export default function App() {
   const [content, setContent] = useState("");
   const [dirty, setDirty] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [provider, setProvider] = useState<SttProvider>(
+    () => (localStorage.getItem("stt_provider") as SttProvider) ?? "webspeech"
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const loadDocs = useCallback(async () => {
@@ -96,7 +102,14 @@ export default function App() {
     });
   }, []);
 
-  const { state: recState, toggle } = useRecorder(onTranscript);
+  const whisper = useRecorder(onTranscript);
+  const webSpeech = useWebSpeech(onTranscript);
+  const { state: recState, toggle } = provider === "webspeech" ? webSpeech : whisper;
+
+  const switchProvider = useCallback((p: SttProvider) => {
+    setProvider(p);
+    localStorage.setItem("stt_provider", p);
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -174,7 +187,7 @@ export default function App() {
               >
                 {recState === "idle" && "Aufnahme starten"}
                 {recState === "recording" && "Aufnahme stoppen"}
-                {recState === "transcribing" && "Transkribiere..."}
+                {recState === "transcribing" && "Verarbeite..."}
               </button>
               {recState === "recording" && (
                 <span className="recording-indicator">
@@ -182,6 +195,26 @@ export default function App() {
                   Sprechen Sie jetzt...
                 </span>
               )}
+              {recState === "transcribing" && (
+                <span className="recording-indicator">Übertrage...</span>
+              )}
+
+              <div className="provider-toggle">
+                <button
+                  className={`provider-btn ${provider === "webspeech" ? "active" : ""}`}
+                  onClick={() => switchProvider("webspeech")}
+                  title="Google Web Speech API (online, kein Setup)"
+                >
+                  Google
+                </button>
+                <button
+                  className={`provider-btn ${provider === "whisper" ? "active" : ""}`}
+                  onClick={() => switchProvider("whisper")}
+                  title="Whisper (lokal, im Docker)"
+                >
+                  Whisper
+                </button>
+              </div>
             </div>
 
             <textarea
