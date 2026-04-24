@@ -14,7 +14,7 @@ services:
     build: ./backend
     container_name: dictation-backend
     ports:
-      - "8010:8000"
+      - "8011:8000"
     volumes:
       - ./backend/app:/app/app
       - backend-data:/app/data
@@ -30,7 +30,7 @@ services:
       target: dev
     container_name: dictation-frontend
     ports:
-      - "3002:5173"
+      - "3005:5173"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html
