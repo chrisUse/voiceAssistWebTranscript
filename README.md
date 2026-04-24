@@ -2,6 +2,8 @@
 
 A Docker-based voice dictation web app. Record audio → transcribe automatically → save and export as documents.
 
+> Built with [Claude Code](https://claude.ai/code) (Anthropic).
+
 ## Features
 
 - **Two switchable STT providers:**
