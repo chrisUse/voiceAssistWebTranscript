@@ -76,6 +76,16 @@ export default function App() {
     }
   }, [activeId, title, content, loadDocs]);
 
+  const saveTitleOnBlur = useCallback(async () => {
+    if (!activeId || !title.trim()) return;
+    await fetch(`/api/docs/${activeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    await loadDocs();
+  }, [activeId, title, loadDocs]);
+
   const deleteDoc = useCallback(
     async (id: number) => {
       if (!confirm("Dokument wirklich löschen?")) return;
@@ -174,6 +184,10 @@ export default function App() {
                 onChange={(e) => {
                   setTitle(e.target.value);
                   setDirty(true);
+                }}
+                onBlur={saveTitleOnBlur}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
                 }}
                 placeholder="Titel eingeben..."
               />
