@@ -1,0 +1,44 @@
+services:
+  whisper:
+    build: ./whisper
+    container_name: dictation-whisper
+    environment:
+      # Modell-Optionen: tiny, base, small, medium, large-v3
+      # Größeres Modell = besser für Deutsch, aber langsamer beim ersten Start
+      - WHISPER_MODEL=base
+    volumes:
+      - whisper-models:/root/.cache/huggingface
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: dictation-backend
+    ports:
+      - "8010:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - backend-data:/app/data
+    env_file:
+      - .env
+    depends_on:
+      - whisper
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    container_name: dictation-frontend
+    ports:
+      - "3002:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-data:
+  whisper-models:
