@@ -22,7 +22,9 @@ export default function App() {
   const [provider, setProvider] = useState<SttProvider>(
     () => (localStorage.getItem("stt_provider") as SttProvider) ?? "webspeech"
   );
+  const [continuous, setContinuous] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const loadDocs = useCallback(async () => {
     const res = await fetch("/api/docs/");
@@ -51,6 +53,11 @@ export default function App() {
       const doc = await res.json();
       await loadDocs();
       openDoc(doc);
+      // Titel direkt editierbar machen
+      setTimeout(() => {
+        titleInputRef.current?.select();
+        titleInputRef.current?.focus();
+      }, 50);
     }
   }, [loadDocs, openDoc]);
 
@@ -102,8 +109,8 @@ export default function App() {
     });
   }, []);
 
-  const whisper = useRecorder(onTranscript);
-  const webSpeech = useWebSpeech(onTranscript);
+  const whisper = useRecorder(onTranscript, continuous);
+  const webSpeech = useWebSpeech(onTranscript, continuous);
   const { state: recState, toggle } = provider === "webspeech" ? webSpeech : whisper;
 
   const switchProvider = useCallback((p: SttProvider) => {
@@ -121,6 +128,8 @@ export default function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [saveDoc]);
+
+  const isActive = recState !== "idle";
 
   return (
     <div className="app">
@@ -159,13 +168,14 @@ export default function App() {
           <>
             <div className="editor-header">
               <input
+                ref={titleInputRef}
                 className="title-input"
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value);
                   setDirty(true);
                 }}
-                placeholder="Titel"
+                placeholder="Titel eingeben..."
               />
               <div className="editor-actions">
                 {dirty && <span className="dirty-badge">ungespeichert</span>}
@@ -183,37 +193,51 @@ export default function App() {
               <button
                 className={`record-btn record-btn--${recState}`}
                 onClick={toggle}
-                disabled={recState === "transcribing"}
+                disabled={!activeId}
               >
-                {recState === "idle" && "Aufnahme starten"}
+                {recState === "idle" && (continuous ? "Daueraufnahme starten" : "Aufnahme starten")}
                 {recState === "recording" && "Aufnahme stoppen"}
                 {recState === "transcribing" && "Verarbeite..."}
               </button>
+
               {recState === "recording" && (
                 <span className="recording-indicator">
                   <span className="recording-dot" />
-                  Sprechen Sie jetzt...
+                  {continuous ? "Daueraufnahme aktiv..." : "Sprechen Sie jetzt..."}
                 </span>
               )}
               {recState === "transcribing" && (
                 <span className="recording-indicator">Übertrage...</span>
               )}
 
-              <div className="provider-toggle">
+              <div className="record-bar-right">
                 <button
-                  className={`provider-btn ${provider === "webspeech" ? "active" : ""}`}
-                  onClick={() => switchProvider("webspeech")}
-                  title="Google Web Speech API (online, kein Setup)"
+                  className={`continuous-btn ${continuous ? "active" : ""}`}
+                  onClick={() => setContinuous((v) => !v)}
+                  disabled={isActive}
+                  title="Daueraufnahme: automatisch neu starten nach jeder Pause"
                 >
-                  Google
+                  {continuous ? "⏺ Dauermodus an" : "Dauermodus"}
                 </button>
-                <button
-                  className={`provider-btn ${provider === "whisper" ? "active" : ""}`}
-                  onClick={() => switchProvider("whisper")}
-                  title="Whisper (lokal, im Docker)"
-                >
-                  Whisper
-                </button>
+
+                <div className="provider-toggle">
+                  <button
+                    className={`provider-btn ${provider === "webspeech" ? "active" : ""}`}
+                    onClick={() => switchProvider("webspeech")}
+                    disabled={isActive}
+                    title="Google Web Speech API (online, kein Setup)"
+                  >
+                    Google
+                  </button>
+                  <button
+                    className={`provider-btn ${provider === "whisper" ? "active" : ""}`}
+                    onClick={() => switchProvider("whisper")}
+                    disabled={isActive}
+                    title="Whisper (lokal, im Docker)"
+                  >
+                    Whisper
+                  </button>
+                </div>
               </div>
             </div>
 
